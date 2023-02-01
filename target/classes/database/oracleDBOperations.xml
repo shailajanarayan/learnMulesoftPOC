@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<configuration doc:name="Configuration" doc:id="cf1e7a58-44d2-42a3-8694-f2df85195e09" defaultErrorHandler-ref="handleDatabaseErrorOnly" />
+	<configuration doc:name="Configuration" doc:id="2d7c9d15-4281-4908-9f35-c9e4a1c82709" defaultErrorHandler-ref="handleHTTPErrors" />
+	<flow name="oracleDBOperationsFlow" doc:id="a3f0ad98-01c9-42df-b9df-733705664204" >
+		<http:listener doc:name="HTTP Listener" doc:id="e4197b15-1bdf-4361-af16-3d667188ca06" config-ref="HTTP_Listener_6061_learnmulesoft" path="/postempinformation"/>
+		<logger level="INFO" doc:name="Log Payload" doc:id="68075009-23fa-4872-a4c5-0971beecbba1" message="#[payload]"/>
+		<db:insert doc:name="InsertToEmployeeInformation" doc:id="50806ab1-9ea1-4f9e-a4be-d29237cb9f38" config-ref="Oracle_19C_learnmulesoft">
+			<db:sql ><![CDATA[INSERT INTO "LEARNMULESOFT"."EMPLOYEEINFORMATION" (EMPNAME, EMPID, EMPADDRESS, EMPSALARY, EMPLOCATION, EMPSTATUS)
+VALUES (:EMPNAME, :EMPID, :EMPADDRESS, :EMPSALARY, :EMPLOCATION, :EMPSTATUS)]]></db:sql>
+			<db:input-parameters ><![CDATA[#[{
+	EMPNAME: payload.EMPNAME,
+	EMPID: payload.EMPID,
+    EMPADDRESS: payload.EMPADDRESS,
+    EMPSALARY: payload.EMPSALARY,
+    EMPLOCATION: payload.EMPLOCATION,
+    EMPSTATUS: payload.EMPSTATUS
+	
+}]]]></db:input-parameters>
+		</db:insert>
+		<ee:transform doc:name="sendResponseBack" doc:id="2d4f04bb-274a-478d-8922-989a8d7fe2c9" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	httpStatus: 200,
+	information: "Insert Successful",
+	affectedRows: payload.affectedRows
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<logger level="INFO" doc:name="Log Payload" doc:id="4d6561c2-c2f1-4363-ae78-4e8e7dc65a11" message="#[payload]"/>
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="b063e67a-2a33-4eb6-a040-5ee3d308b422" type="ANY">
+				<logger level="INFO" doc:name="Log payload" doc:id="4945d552-45c0-4484-9a4e-60f05bee6cea" message="#[payload]"/>
+				<ee:transform doc:name="sendResponseBack" doc:id="6224c390-9657-4847-97f0-45f26ac13250" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+{
+	httpStatus: 404,
+	information: error.description,
+	errorType: error.errorType
+}]]></ee:set-payload>
+					</ee:message>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
